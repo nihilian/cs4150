@@ -9,12 +9,15 @@ namespace AutoSink
 {
     class Program
     {
+        static List<City> linearized;
         private class City
         {
             public string Name { private set; get; }
             public int Toll { private set; get; }
 
-            public int pre, post;
+            public bool visited;
+
+            public int cheapest = 0;
 
             private List<City> highways;
             public City(string name, int toll)
@@ -29,78 +32,48 @@ namespace AutoSink
                 highways.Add(city);
             }
 
-            public int ComputePath(ref City dest)
+            public int GetCheapest(ref City dest)
             {
-                List<City> revSorted = Linearize(dest.Name);
-                if (!revSorted.Contains(dest))
+                int sourceIndex = linearized.IndexOf(this);
+                int destIndex = linearized.IndexOf(dest);
+                if (destIndex < sourceIndex)
                     return -1;
-                int destIndex = revSorted.IndexOf(dest);
-                return GetCheapest(revSorted, destIndex);
-            }
-
-            private int GetCheapest(List<City> revSorted, int index)
-            {
-                if (revSorted[index].Name == Name)
+                else if (destIndex == sourceIndex)
                     return 0;
-
-                int cheapestParent = -1;
-                for(int i = index; i < revSorted.Count; i++)
+                else
                 {
-                    if(revSorted[i].highways.Contains(revSorted[index]))
+                    cheapest = 0;
+                    linearized[sourceIndex + 1].cheapest = linearized[sourceIndex + 1].Toll;
+                    int temp = sourceIndex + 2;
+                    while (temp <= destIndex)
                     {
-                        int tempCheap = GetCheapest(revSorted, i);
-                        if (cheapestParent == -1 || tempCheap < cheapestParent)
-                            cheapestParent = tempCheap;
+                        for(int i = sourceIndex; i < destIndex; i++)
+                        {
+                            if (linearized[i].highways.Contains(linearized[temp]))
+                        }
                     }
                 }
-                return cheapestParent + revSorted[index].Toll;
             }
 
-            private List<City> Linearize(string dest)
+            public void Explore()
             {
-                List<City> pre = new List<City>();
-                List<City> post = new List<City>();
-                pre.Add(this);
+                visited = true;
 
-                if (Name == dest)
-                    return pre;
-
-                foreach (City node in highways)
+                foreach(City node in highways)
                 {
-                    if (!pre.Contains(node))
+                    if (!node.visited)
                     {
-                        node.Explore(ref pre, ref post, dest);
+                        node.Explore();
                     }
                 }
-
-                post.Add(this);
-                return post;
-            }
-
-            private void Explore(ref List<City> pre, ref List<City> post, string dest)
-            {
-                pre.Add(this);
-
-                if (Name == dest)
-                {
-                    post.Add(this);
-                    return;
-                }
-                foreach(City node in this.highways)
-                {
-                    if (!pre.Contains(node))
-                    {
-                        node.Explore(ref pre, ref post, dest);
-                    }
-                }
-                post.Add(this);
-                return;
+                linearized.Add(this);
             }
 
         }
 
         static void Main(string[] args)
         {
+            linearized = new List<City>();
             Dictionary<string, City> cities = new Dictionary<string, City>();
             string output = "";
             Scanner scanner = new Scanner();
@@ -124,7 +97,8 @@ namespace AutoSink
                 sCity.AddHighway(ref dCity);
             }
 
-
+            Linearize(cities);
+            linearized.Reverse();
             int t = scanner.NextInt();
             for (int i = 0; i < t; i++)
             {
@@ -133,7 +107,7 @@ namespace AutoSink
                 City source, dest;
                 cities.TryGetValue(tripStart, out source);
                 cities.TryGetValue(tripEnd, out dest);
-                int cost = source.ComputePath(ref dest);
+                int cost = source.GetCheapest(ref dest);
                 if (cost == -1)
                     output = output + "NO\n";
                 else
@@ -141,6 +115,15 @@ namespace AutoSink
             }
 
             Console.WriteLine(output);
-        }   
+        }
+
+        static void Linearize(Dictionary<string, City> cities)
+        {
+            foreach(City node in cities.Values)
+            {
+                if (!node.visited)
+                    node.Explore();
+            }
+        }
     }
 }
