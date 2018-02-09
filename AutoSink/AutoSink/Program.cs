@@ -17,14 +17,14 @@ namespace AutoSink
 
             public bool visited;
 
-            public int cheapest = 0;
+            public int cost = int.MaxValue;
 
-            private List<City> highways;
+            private HashSet<City> highways;
             public City(string name, int toll)
             {
                 Name = name;
                 Toll = toll;
-                highways = new List<City>();
+                highways = new HashSet<City>();
             }
 
             public void AddHighway(ref City city)
@@ -37,36 +37,55 @@ namespace AutoSink
                 int sourceIndex = linearized.IndexOf(this);
                 int destIndex = linearized.IndexOf(dest);
                 if (destIndex < sourceIndex)
-                    return -1;
+                    return int.MaxValue;
                 else if (destIndex == sourceIndex)
                     return 0;
                 else
                 {
-                    cheapest = 0;
-                    linearized[sourceIndex + 1].cheapest = linearized[sourceIndex + 1].Toll;
-                    int temp = sourceIndex + 2;
-                    while (temp <= destIndex)
+                    linearized[sourceIndex].cost = 0;
+                    HashSet<int> nodesToCheck = new HashSet<int>();
+                    nodesToCheck.Add(sourceIndex);
+                    for (int i = sourceIndex; i < destIndex; i++)
                     {
-                        for(int i = sourceIndex; i < destIndex; i++)
+                        if (!nodesToCheck.Contains(i))
+                            continue;
+                        for (int j = sourceIndex + 1; j <= destIndex; j++)
                         {
-                            if (linearized[i].highways.Contains(linearized[temp]))
+                            if (linearized[i].highways.Contains(linearized[j]))
+                            {
+                                int tempCost = linearized[i].cost + linearized[j].Toll;
+                                if (tempCost < linearized[j].cost)
+                                    linearized[j].cost = tempCost;
+                                nodesToCheck.Add(j);
+                            }
                         }
                     }
+                    int cheapestCost = linearized[destIndex].cost;
+                    for (int i = sourceIndex; i <= destIndex; i++)
+                    {
+                        linearized[i].cost = int.MaxValue;
+                    }
+                    return cheapestCost;
                 }
+            }
+
+            public override int GetHashCode()
+            {
+                return Name.GetHashCode();
             }
 
             public void Explore()
             {
                 visited = true;
 
-                foreach(City node in highways)
+                foreach (City node in highways)
                 {
                     if (!node.visited)
                     {
                         node.Explore();
                     }
                 }
-                linearized.Add(this);
+                linearized.Insert(0, this);
             }
 
         }
@@ -98,7 +117,6 @@ namespace AutoSink
             }
 
             Linearize(cities);
-            linearized.Reverse();
             int t = scanner.NextInt();
             for (int i = 0; i < t; i++)
             {
@@ -108,7 +126,7 @@ namespace AutoSink
                 cities.TryGetValue(tripStart, out source);
                 cities.TryGetValue(tripEnd, out dest);
                 int cost = source.GetCheapest(ref dest);
-                if (cost == -1)
+                if (cost == int.MaxValue)
                     output = output + "NO\n";
                 else
                     output = output + cost.ToString() + "\n";
@@ -119,7 +137,7 @@ namespace AutoSink
 
         static void Linearize(Dictionary<string, City> cities)
         {
-            foreach(City node in cities.Values)
+            foreach (City node in cities.Values)
             {
                 if (!node.visited)
                     node.Explore();
