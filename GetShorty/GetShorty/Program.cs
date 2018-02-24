@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Kattis.IO;
+using Priority_Queue;
 
 namespace GetShorty
 {
@@ -14,38 +15,106 @@ namespace GetShorty
         {
             private IComparer<Intersection> comparer;
             private Intersection[] heap;
+            private int[] indexLookup;
             public int Size { private set; get; }
             public IntersectionHeap(IComparer<Intersection> comp, int capacity)
             {
                 comparer = comp;
                 heap = new Intersection[capacity];
+                indexLookup = new int[capacity];
+                for (int i = 0; i < capacity; i++)
+                {
+                    heap[i] = null;
+                    indexLookup[i] = -1;
+                }
+
                 Size = 0;
             }
 
             public void InsertOrChange(Intersection inter)
             {
-                heap[Size] = inter;
-                if (Size != 0)
+                int index = indexLookup[inter.Number];
+                if (Size == 0)
                 {
-                    int child = Size;
-                    int parent = (child - 1) / 2;
-                    while (parent >= 0)
+                    heap[Size] = inter;
+                    indexLookup[inter.Number] = Size;
+                    Size++;
+                }
+
+                else if (index > -1)
+                {
+                    if (comparer.Compare(inter, heap[index]) > 0)
                     {
-                        if (comparer.Compare(heap[parent], heap[child]) < 0)
-                        {
-                            Swap(parent, child);
-                            child = parent;
-                            parent = (child - 1) / 2;
-                        }
-                        else
-                            break;
+                        heap[index] = inter;
+                        BubbleUp(index);
                     }
                 }
-                Size++;
+
+                else
+                {
+                    heap[Size] = inter;
+                    indexLookup[inter.Number] = Size;
+                    BubbleUp(Size);
+                    Size++;
+                }
+            }
+
+            private void BubbleUp(int child)
+            {
+                int parent = (child - 1) / 2;
+                while (parent >= 0)
+                {
+                    if (comparer.Compare(heap[child], heap[parent]) > 0)
+                    {
+                        Swap(parent, child);
+                        child = parent;
+                        parent = (child - 1) / 2;
+                    }
+                    else
+                        break;
+                }
+            }
+
+            private void BubbleDown(int parent)
+            {
+                int child1 = parent * 2 + 1;
+                int child2 = parent * 2 + 2;
+                while (!(child1 > Size - 1))
+                {
+                    if (comparer.Compare(heap[child1], heap[parent]) > 0)
+                    {
+                        if (!(child2 > Size-1) && comparer.Compare(heap[child2], heap[child1]) > 0)
+                        {
+                            Swap(parent, child2);
+                            parent = child2;
+                            child1 = parent * 2 + 1;
+                            child2 = parent * 2 + 2;
+                        }
+                        else
+                        {
+                            Swap(parent, child1);
+                            parent = child1;
+                            child1 = parent * 2 + 1;
+                            child2 = parent * 2 + 2;
+                        }
+
+                    }
+                    else if (!(child2 > Size - 1) && comparer.Compare(heap[child2], heap[parent]) > 0)
+                    {
+                        Swap(parent, child2);
+                        parent = child2;
+                        child1 = parent * 2 + 1;
+                        child2 = parent * 2 + 2;
+                    }
+                    else
+                        break;
+                }
             }
 
             private void Swap(int x, int y)
             {
+                indexLookup[heap[x].Number] = y;
+                indexLookup[heap[y].Number] = x;
                 Intersection temp = heap[x];
                 heap[x] = heap[y];
                 heap[y] = temp;
@@ -53,7 +122,21 @@ namespace GetShorty
 
             public Intersection DeleteMax()
             {
-
+                Intersection max = heap[0];
+                if (Size == 1)
+                {
+                    heap[0] = null;
+                    indexLookup[max.Number] = -1;
+                    Size--;
+                    return max;
+                }
+                indexLookup[heap[0].Number] = 0;
+                indexLookup[heap[Size - 1].Number] = -1;
+                heap[0] = heap[Size - 1];
+                heap[Size - 1] = null;
+                Size--;
+                BubbleDown(0);
+                return max;
             }
         }
 
@@ -115,22 +198,22 @@ namespace GetShorty
         static void Main(string[] args)
         {
             Dictionary<int, Intersection> intersections;
-            SortedSet<Intersection> priorityQueue;
+            IntersectionHeap priorityQueue;
             string output = "";
             IntersectionComp comparer = new IntersectionComp();
             Scanner input = new Scanner();
             int n = input.NextInt();
             int m = input.NextInt();
-            while(n != 0 && m != 0)
+            while (n * m != 0)
             {
                 intersections = new Dictionary<int, Intersection>();
-                priorityQueue = new SortedSet<Intersection>(comparer);
+                priorityQueue = new IntersectionHeap(comparer, n);
                 for (int i = 0; i < n; i++)
                 {
                     Intersection intersection = new Intersection(i);
                     intersections.Add(i, intersection);
                 }
-                for(int i = 0; i < m; i++)
+                for (int i = 0; i < m; i++)
                 {
                     int interKey1 = input.NextInt();
                     int interKey2 = input.NextInt();
@@ -143,8 +226,8 @@ namespace GetShorty
                 }
                 Intersection start;
                 intersections.TryGetValue(0, out start);
-                start.bestFactor = 1;
-                priorityQueue.Add(start);
+                start.bestFactor = 1f;
+                priorityQueue.InsertOrChange(start);
                 Dijkstra(priorityQueue);
                 Intersection end;
                 intersections.TryGetValue(n - 1, out end);
@@ -153,23 +236,21 @@ namespace GetShorty
                 m = input.NextInt();
             }
             Console.Write(output);
+            Console.Read();
         }
 
-        private static void Dijkstra(SortedSet<Intersection> priorityQueue)
+        private static void Dijkstra(IntersectionHeap priorityQueue)
         {
             Intersection current;
-            while (priorityQueue.Count != 0)
+            while (priorityQueue.Size != 0)
             {
-                current = priorityQueue.Max;
-                priorityQueue.Remove(priorityQueue.Max);
-                foreach(Corridor corridor in current.GetCorridors())
+                current = priorityQueue.DeleteMax();
+                foreach (Corridor corridor in current.GetCorridors())
                 {
-                    if (corridor.NextIntersection.bestFactor < corridor.Factor * current.bestFactor)
+                    if (corridor.Factor * current.bestFactor > corridor.NextIntersection.bestFactor)
                     {
                         corridor.NextIntersection.bestFactor = corridor.Factor * current.bestFactor;
-                        if (priorityQueue.Contains(corridor.NextIntersection))
-                            priorityQueue.Remove(corridor.NextIntersection);
-                        priorityQueue.Add(corridor.NextIntersection);
+                        priorityQueue.InsertOrChange(corridor.NextIntersection);
                     }
                 }
             }
