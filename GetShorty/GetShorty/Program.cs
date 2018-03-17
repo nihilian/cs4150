@@ -4,7 +4,6 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using Kattis.IO;
-using Priority_Queue;
 
 namespace GetShorty
 {
@@ -15,45 +14,26 @@ namespace GetShorty
         {
             private IComparer<Intersection> comparer;
             private Intersection[] heap;
-            private int[] indexLookup;
             public int Size { private set; get; }
             public IntersectionHeap(IComparer<Intersection> comp, int capacity)
             {
                 comparer = comp;
                 heap = new Intersection[capacity];
-                indexLookup = new int[capacity];
-                for (int i = 0; i < capacity; i++)
-                {
-                    heap[i] = null;
-                    indexLookup[i] = -1;
-                }
 
                 Size = 0;
             }
 
             public void InsertOrChange(Intersection inter)
             {
-                int index = indexLookup[inter.Number];
                 if (Size == 0)
                 {
                     heap[Size] = inter;
-                    indexLookup[inter.Number] = Size;
                     Size++;
-                }
-
-                else if (index > -1)
-                {
-                    if (comparer.Compare(inter, heap[index]) > 0)
-                    {
-                        heap[index] = inter;
-                        BubbleUp(index);
-                    }
                 }
 
                 else
                 {
                     heap[Size] = inter;
-                    indexLookup[inter.Number] = Size;
                     BubbleUp(Size);
                     Size++;
                 }
@@ -79,11 +59,11 @@ namespace GetShorty
             {
                 int child1 = parent * 2 + 1;
                 int child2 = parent * 2 + 2;
-                while (!(child1 > Size - 1))
+                while (child1 < Size)
                 {
                     if (comparer.Compare(heap[child1], heap[parent]) > 0)
                     {
-                        if (!(child2 > Size-1) && comparer.Compare(heap[child2], heap[child1]) > 0)
+                        if (child2 < Size && comparer.Compare(heap[child2], heap[child1]) > 0)
                         {
                             Swap(parent, child2);
                             parent = child2;
@@ -99,7 +79,7 @@ namespace GetShorty
                         }
 
                     }
-                    else if (!(child2 > Size - 1) && comparer.Compare(heap[child2], heap[parent]) > 0)
+                    else if (child2 < Size && comparer.Compare(heap[child2], heap[parent]) > 0)
                     {
                         Swap(parent, child2);
                         parent = child2;
@@ -113,8 +93,6 @@ namespace GetShorty
 
             private void Swap(int x, int y)
             {
-                indexLookup[heap[x].Number] = y;
-                indexLookup[heap[y].Number] = x;
                 Intersection temp = heap[x];
                 heap[x] = heap[y];
                 heap[y] = temp;
@@ -125,15 +103,10 @@ namespace GetShorty
                 Intersection max = heap[0];
                 if (Size == 1)
                 {
-                    heap[0] = null;
-                    indexLookup[max.Number] = -1;
                     Size--;
                     return max;
                 }
-                indexLookup[heap[0].Number] = 0;
-                indexLookup[heap[Size - 1].Number] = -1;
                 heap[0] = heap[Size - 1];
-                heap[Size - 1] = null;
                 Size--;
                 BubbleDown(0);
                 return max;
@@ -144,7 +117,7 @@ namespace GetShorty
         {
             public int Number { private set; get; }
             public float bestFactor = -1;
-            private List<Corridor> corridors;
+            public List<Corridor> corridors;
 
             public Intersection(int number)
             {
@@ -156,17 +129,6 @@ namespace GetShorty
             {
                 Corridor corridor = new Corridor(intersection, factor);
                 corridors.Add(corridor);
-            }
-
-            public IEnumerable<Corridor> GetCorridors()
-            {
-                foreach (Corridor corridors in corridors)
-                    yield return corridors;
-            }
-
-            public override int GetHashCode()
-            {
-                return Number;
             }
         }
 
@@ -207,7 +169,7 @@ namespace GetShorty
             while (n * m != 0)
             {
                 intersections = new Dictionary<int, Intersection>();
-                priorityQueue = new IntersectionHeap(comparer, n);
+                priorityQueue = new IntersectionHeap(comparer, m);
                 for (int i = 0; i < n; i++)
                 {
                     Intersection intersection = new Intersection(i);
@@ -245,7 +207,7 @@ namespace GetShorty
             while (priorityQueue.Size != 0)
             {
                 current = priorityQueue.DeleteMax();
-                foreach (Corridor corridor in current.GetCorridors())
+                foreach (Corridor corridor in current.corridors)
                 {
                     if (corridor.Factor * current.bestFactor > corridor.NextIntersection.bestFactor)
                     {
