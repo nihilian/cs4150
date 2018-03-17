@@ -7,93 +7,72 @@ using Kattis.IO;
 
 namespace BankQueue
 {
-
-    class Customer : IComparable
-    {
-        public int Cash { get; private set; }
-        public int Time { get; private set; }
-
-        public Customer(int c, int t)
-        {
-            Cash = c;
-            Time = t;
-        }
-
-        public int CompareTo(object obj)
-        {
-            Customer cus = (Customer)obj;
-            if (cus.Time > this.Time)
-                return 1;
-            else if (cus.Time == this.Time)
-            {
-                if (cus.Cash > this.Cash)
-                    return 1;
-                else if (cus.Cash == this.Cash)
-                    return 0;
-                else
-                    return -1;
-            }
-            else
-                return -1;
-                
-        }
-    }
     class Program
     {
         static void Main(string[] args)
         {
-            List<Customer> customers = new List<Customer>();
             Scanner scanner = new Scanner();
-            int opt = 0;
             int N = scanner.NextInt();
-            int T = scanner.NextInt();
+            int T = scanner.NextInt();            
 
-            for(int i = 0; i < N; i++)
+            int[][] canidates = new int[T][];
+            int[] counters = new int[T];
+            int optSol = 0;
+            for (int i = 0; i < T; i++)
+            {
+                canidates[i] = new int[i + 1];
+                counters[i] = i;
+            }
+                
+
+            for (int i = 0; i < N; i++)
             {
                 int c = scanner.NextInt();
                 int t = scanner.NextInt();
-                customers.Add(new Customer(c, t));
-            }
 
-            customers.Sort();
-
-            int j = customers.Count - 1;
-            for(int i = 1; i <= T; i++)
-            {
-                int current = 0;
+                if (t >= T)
+                    t = T - 1;
+                int j = t;
                 while (j >= 0)
                 {
-                    if (customers[j].Time > T-i && customers[j].Cash > current)
+                    if (canidates[t][j] == 0)
                     {
-                        current = customers[j].Cash;
-                        j = FindNextTime(customers, j);
-                    }
-                    else if (customers[j].Time == T-i)
-                    {
-                        if (customers[j].Cash > current)
-                            current = customers[j].Cash;
-                        j = FindNextTime(customers, j);
+                        canidates[t][j] = c;
                         break;
                     }
-                    else
+                    else if (canidates[t][j] <= c)
+                    {
+                        int temp = canidates[t][j];
+                        canidates[t][j] = c;
+                        c = temp;
+                    }
+                    j--;
                 }
             }
-        }
 
-        static int FindNextTime(List<Customer> customers, int index)
-        {
-            Customer c1 = customers[index];
-            while (index > 0)
+            for (int i = T-1; i >= 0; i--)
             {
-                if (customers[index - 1].Time < c1.Time)
-                    return index - 1;
-                else
+                int maxIndex = -1;
+                int maxVal = 0;
+                for (int j = T-1; j >= i; j--)
                 {
-                    c1 = customers[index - 1];
-                    index--;
+                    int k = counters[j];
+                    if (k >= 0 && canidates[j][k] > maxVal)
+                    {
+                        maxVal = canidates[j][k];
+                        maxIndex = j;
+                    }
+                }
+                if (maxIndex != -1)
+                {
+                    optSol += maxVal;
+                    counters[maxIndex]--;
                 }
             }
-            return -1;
+
+            Console.Write(optSol);
+            Console.Read();
+
         }
     }
 }
