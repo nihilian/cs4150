@@ -8,22 +8,25 @@ using Kattis.IO;
 namespace SpidermansWorkout
 {
 
-    class Pair
-    {
-        public int Cur { get; private set; }
-        public int Max { get; private set; }
-        public Pair(int c, int m)
-        {
-            Cur = c;
-            Max = m;
-        }
-    }
-
     class Program
     {
-        static Dictionary<string, Pair>[] cache;
+        class Node
+        {
+            public string Path { get; private set; }
+            public int Max { get; private set; }
+            public bool IsPath { get; private set; }
+
+            public Node(string p, int m, bool i)
+            {
+                Path = p;
+                Max = m;
+                IsPath = i;
+            }
+        }
+
+
+        static Dictionary<int, Node>[] cache;
         static int M;
-        static int last;
         static void Main(string[] args)
         {
             int[] distances;
@@ -33,25 +36,23 @@ namespace SpidermansWorkout
             for (int i = 0; i < N; i++)
             {
                 M = scanner.NextInt();
+                
+                distances = new int[M];
+                cache = new Dictionary<int, Node>[M];
+                int total = 0;
+                for (int j = 0; j < M; j++)
+                {
+                    cache[j] = new Dictionary<int, Node>();
+                    distances[j] = scanner.NextInt();
+                    total += distances[j];
+                }
+
                 if (M == 1)
                 {
                     output[i] = "IMPOSSIBLE";
                     continue;
                 }
-                distances = new int[M];
-                cache = new Dictionary<string, Pair>[M-1];
-                int total = 0;
-                for (int j = 0; j < M; j++)
-                {
-                    if (j < M - 1)
-                        cache[j] = new Dictionary<string, Pair>();
-                    distances[j] = scanner.NextInt();
-                    total += distances[j];
-                }
-                cache[0].Add("U", new Pair(distances[0], distances[0]));
-                total -= distances[0];
-                last = distances[M - 1];
-                output[i] = Calculate(distances, 1, total);
+                output[i] = Calculate(distances, total);
             }
 
             for (int i = 0; i < N; i++)
@@ -60,49 +61,177 @@ namespace SpidermansWorkout
         }
 
 
-        static string Calculate(int[] distances, int i, int total)
+        static string Calculate(int[] distances, int total)
         {
-            while (i < M-1)
-            {
-                foreach(string key in cache[i-1].Keys)
-                {
-                    Pair val;
-                    cache[i - 1].TryGetValue(key, out val);
+            int start = distances[0];
+            total -= distances[0];
+            Node up, down;
+            string rtn = "IMPOSSIBLE";
+            up = GoUp(distances, 1, start, total);
+            down = GoDown(distances, 1, start, total);
 
-                    if (val.Cur - distances[i] >= 0 && val.Cur - distances[i] <= total - distances[i])
+            if (up.IsPath && down.IsPath)
+            {
+                if (up.Max > down.Max)
+                    rtn = "U" + down.Path;
+                else
+                    rtn = "U" + up.Path;
+            }
+            else if (up.IsPath)
+                rtn = "U" + up.Path;
+            else if (down.IsPath)
+                rtn = "U" + down.Path;
+
+            return rtn;
+        }
+
+
+        static Node GoUp(int[] distances, int i, int cur, int remain)
+        {
+            if (i == M-1)
+            {
+                Node rtn = new Node("U", int.MaxValue, false);
+
+                return rtn;
+            }
+
+            cur = cur + distances[i];
+            remain = remain - distances[i];
+
+            if (cache[i].ContainsKey(cur))
+            {
+                Node node;
+                cache[i].TryGetValue(cur, out node);
+                return new Node("U"+node.Path, node.Max, node.IsPath);
+            }
+
+            if (cur <= remain)
+            {
+                Node up, down, rtn;
+                int max;
+                up = GoUp(distances, i+1, cur, remain);
+                down = GoDown(distances, i+1, cur, remain);
+
+                if (up.IsPath && down.IsPath)
+                {
+                    if (up.Max > down.Max)
                     {
-                        cache[i].Add((key + "D"), new Pair(val.Cur - distances[i], val.Max));
+                        if (cur > down.Max)
+                            max = cur;
+                        else
+                            max = down.Max;
+                        rtn = new Node(down.Path, max, true);
                     }
-
-                    if (val.Cur + distances[i] <= total - distances[i])
+                    else
                     {
-                        int newMax = val.Cur + distances[i];
-                        if (newMax < val.Max)
-                            newMax = val.Max;
-
-                        cache[i].Add((key + "U"), new Pair(val.Cur + distances[i], newMax));
-                    }   
+                        if (cur > up.Max)
+                            max = cur;
+                        else
+                            max = up.Max;
+                        rtn = new Node(up.Path, max, true);
+                    }
                 }
-                total -= distances[i];
-                i++;
-            }
-
-            string rtnString = "IMPOSSIBLE";
-            int min = int.MaxValue;
-
-            foreach(string key in cache[M-2].Keys)
-            {
-                Pair val;
-                cache[i - 1].TryGetValue(key, out val);
-
-                if (val.Cur == last && val.Max < min)
+                else if (up.IsPath)
                 {
-                    rtnString = key + "D";
-                    min = val.Max;
+                    if (cur > up.Max)
+                        max = cur;
+                    else
+                        max = up.Max;
+                    rtn = new Node(up.Path, max, true);
                 }
+                else
+                {
+                    if (cur > down.Max)
+                        max = cur;
+                    else
+                        max = down.Max;
+                    rtn = new Node(down.Path, max, down.IsPath);
+                }
+
+                cache[i].Add(cur, rtn);
+                return new Node("U"+rtn.Path, rtn.Max, rtn.IsPath);
             }
 
-            return rtnString;
+            Node badNode = new Node("", int.MaxValue, false);
+            cache[i].Add(cur, badNode);
+
+            return badNode;
+        }
+
+        static Node GoDown(int[] distances, int i, int cur, int remain)
+        {
+            if (i == M - 1)
+            {
+                Node rtn;
+                if (cur - distances[i] == 0)
+                    rtn = new Node("D", 0, true);
+                else
+                    rtn = new Node("D", int.MaxValue, false);
+
+                return rtn;
+            }
+
+            cur = cur - distances[i];
+            remain = remain - distances[i];
+
+            if (cache[i].ContainsKey(cur))
+            {
+                Node node;
+                cache[i].TryGetValue(cur, out node);
+                return new Node("D"+node.Path, node.Max, node.IsPath);
+            }
+
+            if (cur <= remain && cur >= 0)
+            {
+                Node up, down, rtn;
+                int max;
+                up = GoUp(distances, i + 1, cur, remain);
+                down = GoDown(distances, i + 1, cur, remain);
+
+                if (up.IsPath && down.IsPath)
+                {
+                    if (up.Max > down.Max)
+                    {
+                        if (cur > down.Max)
+                            max = cur;
+                        else
+                            max = down.Max;
+                        rtn = new Node(down.Path, max, true);
+                    }
+                    else
+                    {
+                        if (cur > up.Max)
+                            max = cur;
+                        else
+                            max = up.Max;
+                        rtn = new Node(up.Path, max, true);
+                    }
+                }
+                else if (up.IsPath)
+                {
+                    if (cur > up.Max)
+                        max = cur;
+                    else
+                        max = up.Max;
+                    rtn = new Node(up.Path, max, true);
+                }
+                else
+                {
+                    if (cur > down.Max)
+                        max = cur;
+                    else
+                        max = down.Max;
+                    rtn = new Node(down.Path, max, down.IsPath);
+                }
+
+                cache[i].Add(cur, rtn);
+                return new Node("D"+rtn.Path, rtn.Max, rtn.IsPath);
+            }
+
+            Node badNode = new Node("", int.MaxValue, false);
+            cache[i].Add(cur, badNode);
+
+            return badNode;
         }
     }
 }
